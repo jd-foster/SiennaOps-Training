@@ -49,11 +49,11 @@ Pkg.add([
 ````
 
 Some other (optional) packages include
-- [StorageSystemsSimulations](https://github.com/NREL-Sienna/StorageSystemsSimulations.jl)
-- [HydroPowerSimulations](https://github.com/NREL-Sienna/HydroPowerSimulations.jl)
+- [PowerGraphics](https://github.com/NREL-Sienna/PowerGraphics.jl)
 - [PowerNetworkMatrices](https://github.com/NREL-Sienna/PowerNetworkMatrices.jl)
 - [PowerFlows](https://github.com/NREL-Sienna/PowerFlows.jl)
-- [PowerGraphics](https://github.com/NREL-Sienna/PowerGraphics.jl)
+- [HydroPowerSimulations](https://github.com/NREL-Sienna/HydroPowerSimulations.jl)
+- [StorageSystemsSimulations](https://github.com/NREL-Sienna/StorageSystemsSimulations.jl)
 
 4. Now load the packages we'll need for now:
 
@@ -67,6 +67,8 @@ using PowerSystemCaseBuilder
 using PowerSimulations
 using PowerAnalytics
 ````
+
+These steps may take awhile on the first run while Julia sets up your programming environment. It will be quicker on future runs.
 
 ## Load systems from PowerSystemCaseBuilder.jl
 
@@ -94,8 +96,8 @@ system = build_system(PSISystems, "modified_RTS_GMLC_DA_sys");
 system
 ````
 
-What are all these Types? Take a look at the Type Tree:
-https://nrel-sienna.github.io/PowerSystems.jl/stable/api/type_tree/
+What are all these Types?
+Take a look at the [Type Tree](https://nrel-sienna.github.io/PowerSystems.jl/stable/api/type_tree/).
 
 ## Let's explore and retrieve data
 
@@ -127,8 +129,8 @@ get_units_base(system)
 ````
 
 Getters and setters handle per-unitization for you, but different per-unitization options trip up new users!
-When in doubt, switch your system units base and spotcheck your data with different bases to make sure you're confident. See:
-https://nrel-sienna.github.io/PowerSystems.jl/stable/tutorials/creating_system/#Changing-System-Per-Unit-Settings
+When in doubt, switch your system units base and spotcheck your data with different bases to make sure you're confident.
+See **Changing System Per-Unit Settings** in [Create and Explore a Power System](https://nrel-sienna.github.io/PowerSystems.jl/stable/tutorials/generated_creating_system/).
 
 13. Change the settings to device base (per-unitized by `base_power` value):
 
@@ -245,15 +247,12 @@ get_time_series_array(Deterministic, g, "max_active_power")
 29. We have turned off the renewable generators and updated CT ramp rates. Export the system to json and .h5 files for the time series:
 
 ````julia
-to_json(system, "my_new_RTS_DA_system.json")
+to_json(system, "my_new_RTS_DA_system.json", force=true)
 ````
 
 ## Takeaways:
-
-````julia
 - Use show_components and get_components to filter for the data or access that you need, without large memory allocations.
 - Use getters (`get_`) and setters (`set_`) to access and change data, with per-unitization handling built it.
-````
 
 # Moving to Production Cost Modeling
 
@@ -280,7 +279,8 @@ solver = optimizer_with_attributes(
 template = template_unit_commitment()
 ````
 
-How do you learn more about the different formulations? See the Formulation Library: https://nrel-sienna.github.io/PowerSimulations.jl/stable/formulation_library/Introduction/
+How do you learn more about the different formulations?
+See the [Formulation Library](https://nrel-sienna.github.io/PowerSimulations.jl/stable/formulation_library/Introduction/).
 
 32. Apply that template to our data to make a complete model, with both data and equations:
 
@@ -290,14 +290,15 @@ models = SimulationModels(
         DecisionModel(template, system, optimizer=solver, name="UC"),
     ],
 )
-We just have one model -- the unit commitment model.
 ````
 
-33. In addition to defining the formulation template, sequential simulations require
+We just have one model: the unit commitment model.
 
-````julia
+33. In addition to defining the formulation template, sequential simulations require
 definitions for how information flows between problems to set the initial conditions
 of the next problem:
+
+````julia
 DA_sequence = SimulationSequence(
     models=models,
     ini_cond_chronology=InterProblemChronology(),
@@ -336,36 +337,35 @@ results = SimulationResults(sim)
 uc_results = get_decision_problem_results(results, "UC")
 ````
 
-38. Let's visualize the results
-
-````julia
-plot_fuel(uc_results);
-````
+38. If we load the PowerGraphics.jl package, we can visualize the results using the `plot_fuel` function:
+`plot_fuel(uc_results);`
 
 39. We can also look at how much it cost to operate the thermal generators at each time step:
 
 ````julia
 costs = read_realized_expressions(uc_results, list_expression_names(uc_results))["ProductionCostExpression__ThermalStandard"]
-Wind, solar, and hydro have 0 operating cost and do not contribute to total cost in this model
 ````
+
+Wind, solar, and hydro have zero operating cost and do not contribute to total cost in this model
 
 40. We can sum over the set of generators and time-steps to get total production cost for this window
 
 ````julia
-sum(sum(eachcol(costs[!, 2:end])))
+total_costs_prod = sum(costs[:, :value])
 ````
 
-## Now, let's change some things in the system:
+## Changing the system
+Now, let's change some things in the system:
 
-41. Now, let's change how the thermal generators behave by adding in ramping and minimum up
+41. Let's change how the thermal generators behave by adding in ramping and minimum up
 and down time constraints:
 
 ````julia
 set_device_model!(template, ThermalStandard, ThermalStandardUnitCommitment)
 ````
 
-You can see the formulations options in the documentation:
-https://nrel-sienna.github.io/PowerSimulations.jl/stable/formulation_library/ThermalGen/
+You can see the formulations options in the documentation for
+[ThermalGen](https://nrel-sienna.github.io/PowerSimulations.jl/stable/formulation_library/ThermalGen/).
 
 42. We've changed our template, so we need to re-build the DecisionModels within our simulation, which
 includes a copy of the template:
@@ -401,14 +401,16 @@ execute!(sim)
 ````julia
 results = SimulationResults(sim)
 uc_results = get_decision_problem_results(results, "UC")
-plot_fuel(uc_results);
 ````
+
+With the PowerGraphics.jl package, we can visualize this using
+`plot_fuel(uc_results);`
 
 45. Finally, let's extract the operating costs again and see the impact on total cost:
 
 ````julia
 costs = read_realized_expressions(uc_results, list_expression_names(uc_results))["ProductionCostExpression__ThermalStandard"]
-sum(sum(eachcol(costs[!, 2:end])))
+total_costs_uc = sum(costs[:, :value])
 ````
 
 ## Adding in renewables
@@ -443,14 +445,16 @@ execute!(sim)
 ````julia
 results = SimulationResults(sim)
 uc_results = get_decision_problem_results(results, "UC")
-plot_fuel(uc_results);
 ````
+
+With the PowerGraphics.jl package, we can visualize this using
+`plot_fuel(uc_results);`
 
 49. Finally, let's extract the operating costs again and see the impact on total cost:
 
 ````julia
 costs = read_realized_expressions(uc_results, list_expression_names(uc_results))["ProductionCostExpression__ThermalStandard"]
-sum(sum(eachcol(costs[!, 2:end])))
+total_costs_renew = sum(costs[:, :value])
 ````
 
 ## Complete our scenario analysis with PowerAnalytics
@@ -464,11 +468,12 @@ results_all = create_problem_results_dict(results_dir, "UC"; populate_system=tru
 51. Define which time-independent metrics we're interested in:
 
 ````julia
+PA = PowerAnalytics
 timeless_computations = [PA.calc_sum_objective_value, PA.calc_sum_solve_time, PA.calc_sum_bytes_alloc]
 timeless_names = ["Objective Value", "Solve Time", "Memory Allocated"];
 ````
 
-For more, see PowerAnalytics' [Built-In Metrics](https://nrel-sienna.github.io/PowerAnalytics.jl/stable/reference/public/#Built-in-Metrics)
+For more, see PowerAnalytics' [Built-In Metrics](https://nrel-sienna.github.io/PowerAnalytics.jl/stable/reference/public/#Built-in-Metrics).
 
 52. We'll also make selectors, which help us calculate our metrics across whichever dimensions and/or groupings
 are of interest:
