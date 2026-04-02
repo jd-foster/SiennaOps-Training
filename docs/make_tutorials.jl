@@ -326,7 +326,9 @@ end
 
 # Markdown files are postprocessed to add download links for the Julia script and Jupyter notebook
 # Jupyter notebooks are postprocessed to add image links and pkg.status()
-function make_tutorials()
+# As an alternative, just generate CommonMark versions of tutorial files (that can be directly read on GitHub etc.)
+# by setting `generate_cm=true`.
+function make_tutorials(;generate_cm=false)
     # Exclude helper scripts that start with "_"
     if isdir("docs/src/tutorials")
         tutorial_files =
@@ -352,8 +354,17 @@ function make_tutorials()
 
                 outputfile = string("generated_", replace("$file", ".jl" => ""))
 
+                # Generate common markdown (for README files and similar)
+                generate_cm && Literate.markdown(infile_path,
+                    tutorial_outputdir;
+                    name = string("generated_README_", replace("$file", ".jl" => "")),
+                    credit = false,
+                    flavor = Literate.CommonMarkFlavor(),
+                    documenter = false,
+                    execute = execute)
+                
                 # Generate markdown
-                Literate.markdown(infile_path,
+                !(generate_cm) && Literate.markdown(infile_path,
                     tutorial_outputdir;
                     name = outputfile,
                     credit = false,
@@ -371,7 +382,7 @@ function make_tutorials()
                 # Generate notebook (chain add_image_links after add_pkg_status_to_notebook).
                 # preprocess_admonitions_for_notebook converts Documenter admonitions to blockquotes
                 # so they render in Jupyter; markdown output keeps !!! style for Documenter.
-                Literate.notebook(infile_path,
+                !(generate_cm) && Literate.notebook(infile_path,
                     tutorial_outputdir;
                     name = outputfile,
                     credit = false,
