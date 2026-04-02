@@ -357,7 +357,7 @@ function make_tutorials(;generate_cm=false)
                 # Generate common markdown (for README files and similar)
                 generate_cm && Literate.markdown(infile_path,
                     tutorial_outputdir;
-                    name = string("generated_README_", replace("$file", ".jl" => "")),
+                    name = string("generated_CommonMark_", replace("$file", ".jl" => "")),
                     credit = false,
                     flavor = Literate.CommonMarkFlavor(),
                     documenter = false,
